@@ -11,7 +11,8 @@ try {
   const status = await statusResponse.json();
   if (!statusResponse.ok) throw new Error(status.error);
   const model = process.env.COPILOT_MODEL || status.model;
-  console.log(`Testing authenticated HTTP chat with ${model}. This uses your Copilot allowance.`);
+  console.log(`Authenticated as ${status.login || "the current account"}; credential source: ${status.authType || "not reported"}.`);
+  console.log(`Testing HTTP chat with ${model}. This uses your Copilot allowance.`);
   for (const message of [
     "Reply with exactly COPILOT_CHAT_OK and nothing else.",
     "What exact marker did you just reply with? Reply with only that marker.",

@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$CheckOnly,
-    [switch]$SmokeTest
+    [switch]$SmokeTest,
+    [switch]$WebFlow
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,19 +21,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed." }
     }
 
-    Write-Host "Checking GitHub Copilot sign-in. Azure CLI authentication is not used."
-    & node ".\scripts\check-auth.mjs"
-    $authResult = $LASTEXITCODE
-    if ($authResult -eq 2 -and -not $CheckOnly) {
-        Write-Host "Complete the Copilot CLI's GitHub login in your browser."
-        & ".\node_modules\.bin\copilot.cmd" login
-        if ($LASTEXITCODE -ne 0) { throw "GitHub Copilot login was not completed." }
-        & node ".\scripts\check-auth.mjs"
-        $authResult = $LASTEXITCODE
-    }
-    if ($authResult -ne 0) {
-        throw "Copilot authentication is unavailable. Run .\setup.ps1 and complete GitHub sign-in."
-    }
+    & ".\login.ps1" -CheckOnly:$CheckOnly -WebFlow:$WebFlow
     if ($SmokeTest) {
         & npm.cmd run smoke
         if ($LASTEXITCODE -ne 0) { throw "The live Copilot smoke test failed." }

@@ -16,7 +16,7 @@ function fakeClient(overrides = {}) {
   return {
     calls,
     session,
-    getAuthStatus: async () => ({ isAuthenticated: true, login: "test-user" }),
+    getAuthStatus: async () => ({ isAuthenticated: true, login: "test-user", authType: "user" }),
     listModels: async () => [
       { id: "gpt-test", name: "Test GPT" },
       { id: "blocked", name: "Blocked", policy: { state: "disabled" } },
@@ -139,6 +139,7 @@ test("HTTP serves themed UI, status, chat, reset, and restrictive headers", asyn
   assert.match(html, /aria-label="Conversation"/);
   const status = await (await fetch(url + "/api/status")).json();
   assert.equal(status.login, "test-user");
+  assert.equal(status.authType, "user");
   const reply = await post("/api/chat", { message: "Hello", model: "gpt-test" });
   assert.equal(reply.status, 200);
   assert.equal((await reply.json()).reply, "Reply to Hello");
@@ -178,7 +179,7 @@ test("HTTP exposes actionable auth errors but not raw SDK internals", async (t) 
   const { url, logs } = await withServer(t, chat);
   const signedOut = await fetch(url + "/api/status");
   assert.equal(signedOut.status, 401);
-  assert.match((await signedOut.json()).error, /setup\.ps1/);
+  assert.match((await signedOut.json()).error, /login\.ps1/);
   chat.client.getAuthStatus = async () => { throw new Error("internal provider details"); };
   const failed = await fetch(url + "/api/status");
   assert.equal(failed.status, 502);

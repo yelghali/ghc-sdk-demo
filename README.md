@@ -1,125 +1,207 @@
-# GitHub Copilot SDK Chat Demo
+# GitHub Copilot SDK POC Starter
 
-A small, single-user browser chat backed by the official GitHub Copilot SDK.
-Use your GitHub Copilot account to chat with the models available to you,
-without a separate OpenAI or Anthropic API key.
+A student-friendly base for **chat apps and non-chat workflows** using the
+official GitHub Copilot (GHC) SDK and **each student's own GitHub Copilot login**.
 
-## Features
+**No OpenAI API key, Anthropic API key, Azure subscription, or cloud model
+deployment is required.** Model requests go through GitHub Copilot, not directly
+to a provider's API.
 
-- Browser chat UI with light/dark themes and a model picker.
-- Multi-turn conversations and a **New chat** reset.
-- PowerShell setup that installs missing dependencies and signs in to GitHub.
-- Chat-only runtime with file, shell, and MCP tools disabled.
-- Automated tests plus a live, authenticated two-turn smoke test.
+## What students need
 
-## How it works
+- Windows, PowerShell, Git, and Node.js **22.12 or newer**.
+- Their **own GitHub account with Copilot CLI/model access**. A GitHub account
+  or a working VS Code Copilot extension alone does not guarantee that access.
+- Internet access and any GitHub/organization authorization their account needs.
 
-```text
-Browser (localhost)
-       |
-Local Node.js HTTP server
-       |
-Official GitHub Copilot SDK
-       |
-Copilot runtime -> GitHub Copilot models
-```
+Eligible students can check the [GitHub Education offers](https://education.github.com/pack).
+Plan eligibility, available models, quotas, and organization policies still
+apply. This is not unlimited free inference or a way around access restrictions.
+Instructors should distribute source code, **never their credentials**.
 
-The backend uses Copilot CLI's normal stored login. Credentials are never sent
-to the browser. This is a local SDK integration, not an OpenAI-compatible API
-endpoint or a public hosted chat service.
-
-## Windows quick start
-
-Requires Node.js 22.12 or newer and a GitHub account with Copilot access.
+## Quick start
 
 ```powershell
 git clone https://github.com/yelghali/ghc-sdk-demo.git
 Set-Location .\ghc-sdk-demo
-.\setup.ps1 -SmokeTest
+.\setup.ps1
 npm start
 ```
 
-Open <http://127.0.0.1:4317>. Choose an available model and send a message.
-Use **New chat** before changing models. Tabs share one conversation.
-Stop the server with Ctrl+C.
+If not already signed in, setup displays a **GitHub URL and one-time device
+code**. Open the URL, enter the code yourself, and authorize **your own
+Copilot-enabled GitHub account**. Do not send the code or a token to anyone.
 
-If local PowerShell policy blocks the script, review it first, then run:
+Open <http://127.0.0.1:4317>, select an available model, and send a message.
+Use **New chat** before changing models. Stop the server with Ctrl+C.
+Tabs share one conversation; this is a single-user local demo.
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1 -SmokeTest
-```
-
-The process-scoped policy option does not change your machine's execution policy.
-
-## Authentication
-
-The setup script installs the pinned SDK and Copilot CLI locally with `npm ci`
-when missing, checks existing Copilot authentication, and runs `copilot login`
-only when necessary. Complete GitHub authorization in the browser it opens.
-It never asks you to paste a token or copies credentials into the app.
-VS Code's active Copilot connection is not automatically a CLI login.
-
-**Azure CLI (`az login`) is not used:** its Azure/Entra credentials do not grant
-this demo access to GitHub Copilot. No Azure CLI installation or Azure resource
-is required. For a managed GitHub Enterprise account, follow your organization's
-Copilot CLI sign-in requirements; do not substitute an Azure access token.
-
-To force device-code login, run the locally installed CLI:
+If PowerShell blocks the script, review it first, then use this process-only
+execution-policy override:
 
 ```powershell
-.\node_modules\.bin\copilot.cmd login --device-code
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup.ps1
 ```
 
-If signing in after the server has started, restart the server.
-`.\setup.ps1 -CheckOnly` checks authentication without starting interactive login.
+## Does it really use CLI login?
 
-## Verification
-
-```powershell
-npm test
-npm run check-auth
-npm run smoke
-```
-
-Unit/HTTP tests use a fake SDK client and do not consume your allowance.
-The smoke test uses **real credentials and two real model requests** through an
-ephemeral localhost HTTP server. It verifies an exact reply and follow-up memory;
-it fails explicitly if authentication, model access, or inference is unavailable.
-Choose a specific available model with `$env:COPILOT_MODEL = "<model-id>"`.
-
-## Project layout
+**Yes.** The sequence is:
 
 ```text
-index.html              Browser UI, styles, and client-side chat code
-server.mjs              Local HTTP server and request validation
-copilot.mjs             SDK authentication, model discovery, and chat sessions
-setup.ps1               Dependency installation and GitHub sign-in
-scripts/check-auth.mjs  Authentication check without exposing credentials
-scripts/smoke.mjs       Real two-turn HTTP/model test
-test/chat.test.mjs      Unit and HTTP tests using a fake SDK client
+Student -> login.ps1 -> local Copilot CLI -> GitHub device-code authorization
+                                            |
+                                  Copilot stores that student's login
+                                            |
+Chat app or workflow -> official Copilot SDK -> Copilot runtime -> models
 ```
 
-## Scope and safety
+The SDK client sets `useLoggedInUser: true` and uses the normal Copilot user
+profile/credential store. It does **not** reuse this repository author's account,
+an instructor account, or the active VS Code chat connection. On another
+student's machine, that student must authenticate and have their own entitlement.
+No credential is bundled with this repository.
 
-- Browser -> local Node backend -> Copilot SDK/runtime -> GitHub Copilot models.
-- Models are discovered from your account; subscription, quota, billing, and
-  organization policies apply. Listing a model does not guarantee inference access.
-- No provider API key, token extraction, or undocumented Copilot HTTP endpoint.
-- Credentials stay server-side and are handled by Copilot's normal login storage.
-- SDK `copilot-cli` mode reads your existing OS credential-store login. This SDK
-  version disables that store in `empty` mode, so the demo explicitly disables
-  ambient features instead: an empty tool allowlist, exclusions for every tool
-  source, denied permissions, disabled discovery/skills/hooks/host git, and no MCP
-  configuration keep this chat-only.
-- The server binds only to `127.0.0.1`, validates Host/Origin, and rejects
-  cross-origin writes. It is not a public/multi-user service or an OpenAI API proxy.
-- Messages are rendered as plain text, not executable HTML or Markdown.
-- The app keeps its visible transcript in memory; Copilot may persist its own
-  session data in your user profile. **New chat** disconnects the active session,
-  but is not a secure erasure of Copilot logs. Avoid sensitive prompts.
-- A failed/timed-out request may leave a partial SDK turn; use **New chat** to
-  reset before retrying. A timeout alone does not cancel runtime inference.
-- Optional port override: `$env:PORT = "4318"; npm start`.
+The SDK normally reads Copilot's OS credential store. The CLI may use its user
+configuration directory if secure storage is unavailable. Do not copy or commit
+that directory, even when distributing a working POC.
 
-See the [Copilot SDK](https://github.com/github/copilot-sdk) documentation for
-supported authentication and subscription requirements.
+Check the active identity without printing a token:
+
+```powershell
+.\login.ps1 -CheckOnly
+# Or: npm run check-auth
+```
+
+For a stored CLI login the output includes:
+
+```text
+Copilot is signed in as your-github-login.
+Credential source: user (stored Copilot CLI login).
+```
+
+The SDK also supports other GitHub credential sources. Existing
+`COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` environment variables can
+take precedence over a stored login. If the identity/source is unexpected,
+remove unintended token overrides from your terminal environment and check again.
+No GitHub token environment variable is required for this starter.
+
+| Sign-in | Used for |
+|---|---|
+| `copilot login` via `login.ps1` | This starter's Copilot model access |
+| VS Code Copilot sign-in | The editor extension; not automatically a CLI login |
+| `gh auth login` | GitHub CLI repository operations; not needed to run this app |
+| `az login` | Azure resources; not used here |
+
+### Login is intentionally separate
+
+- [setup.ps1](./setup.ps1): checks Node, installs pinned dependencies if missing,
+  then delegates authentication.
+- **[login.ps1](./login.ps1): the one place to change the interactive login
+  policy tomorrow.** It reuses an existing login, otherwise runs the local
+  `copilot login --device-code` command and verifies the result through the SDK.
+- [scripts/check-auth.mjs](./scripts/check-auth.mjs): SDK identity/source check.
+- [copilot.mjs](./copilot.mjs): runtime client and safe model/session settings.
+  It consumes credentials; it never starts interactive login.
+
+```powershell
+.\login.ps1                  # Reuse login, otherwise use a GitHub device code
+.\login.ps1 -WebFlow         # Use browser callback login if sign-in is needed
+.\login.ps1 -CheckOnly       # Never start interactive sign-in; fail if unavailable
+.\setup.ps1 -WebFlow         # Setup can forward the optional login mode
+```
+
+Run setup before invoking login on a fresh clone. If signing in after starting
+the app, restart it so the runtime can load the new credentials.
+
+## Use it as a POC base
+
+### Chat POC
+
+```text
+index.html -> local server.mjs -> copilot.mjs -> GitHub Copilot SDK/runtime
+```
+
+Customize the UI or prompts while keeping model access behind the local backend.
+The browser never receives credentials. Models are discovered from the signed-in
+account, rather than assuming every student has a specific GPT or Claude model.
+
+### Non-chat workflow POC
+
+No browser or HTTP server is required:
+
+```powershell
+npm run workflow
+npm run workflow -- "Plan a beginner workshop about testing JavaScript"
+```
+
+[scripts/workflow.mjs](./scripts/workflow.mjs) runs a two-step **plan -> review**
+pipeline and prints `{ "model": "...", "plan": "...", "review": "..." }` JSON.
+It reuses the same authenticated client and restricted session settings as chat.
+JavaScript orchestrates the steps; model calls use the student's Copilot account.
+It makes two real requests and consumes that account's allowance.
+
+Use this pattern for a summarizer, classifier, review pipeline, or other POC:
+
+1. Keep authentication in the existing login/client helpers.
+2. Discover an entitled model, then call it through the official SDK.
+3. Orchestrate and validate the steps in your application code.
+4. Return explicit errors when login, model access, quota, or inference fails.
+
+Do not replace the SDK with provider clients or add required
+`OPENAI_API_KEY`/`ANTHROPIC_API_KEY` settings. This is not a drop-in
+OpenAI-compatible HTTP endpoint.
+
+### Guidance for coding assistants
+
+[.github/copilot-instructions.md](./.github/copilot-instructions.md) tells coding
+assistants to preserve this **Copilot SDK + student's own CLI login** architecture
+for both chat and workflows, without introducing separate cloud API credentials.
+It guides development; it neither grants model access nor supplies credentials.
+The demo intentionally does not load repository instructions into user sessions.
+
+## Test locally
+
+```powershell
+npm test                        # Mocked unit/HTTP/login/workflow tests; no model calls
+.\login.ps1 -CheckOnly           # Verify your existing identity without signing in again
+npm run smoke                   # Two real HTTP/model requests; checks follow-up memory
+npm run workflow                # Two real model requests without a browser/server
+```
+
+Or run `.\setup.ps1 -SmokeTest` for setup, login, and the live chat check.
+The smoke test prints the active identity, credential source, and model ID, and
+fails if authentication, entitlement, inference, or the exact test reply fails.
+Unit login tests simulate sign-in states; they never log out your real account.
+
+Optional model override for smoke/workflow: set
+`$env:COPILOT_MODEL = "<available-model-id>"`. Models and rates can differ by
+account; every live check uses the student's Copilot allowance.
+
+## Troubleshooting and limits
+
+- **Not signed in:** run `.\login.ps1`, verify the intended account, and restart
+  any running app. Do not paste Azure tokens or provider keys into this project.
+- **No models / permission denied:** check Copilot CLI access, your plan, and
+  organization policy. A successful login or model listing is not a guarantee
+  that every model can run.
+- **Quota / rate limit:** stop or reduce live requests and check your Copilot
+  allowance. Do not silently fall back to another account or provider.
+- **Request failed or timed out:** check the terminal and use **New chat** before
+  retrying; a timeout alone does not cancel inference.
+- **Port already in use:** stop the other local instance, or use
+  `$env:PORT = "4318"; npm start`.
+
+File, shell, and MCP tools are excluded; permissions are denied; discovery,
+skills, hooks, and host git features are disabled. The SDK's `copilot-cli` mode
+can read the normal credential store, which this pinned SDK disables in `empty`
+mode, so these restrictions are explicitly configured.
+
+The server binds only to `127.0.0.1`, validates Host/Origin, and displays model
+output as plain text. Do not expose a student's credentials/entitlement through
+a shared public server. The app transcript is in memory, but Copilot may retain
+its own session data in the user's profile. **New chat** is not secure log erasure.
+Use non-sensitive sample inputs and follow GitHub's terms and your organization's
+policies.
+
+See the [official Copilot SDK documentation](https://github.com/github/copilot-sdk)
+for supported authentication methods and current requirements.

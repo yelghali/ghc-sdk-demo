@@ -11,7 +11,8 @@
     "start": "node server.mjs",
     "test": "node --test",
     "check-auth": "node scripts\\check-auth.mjs",
-    "smoke": "node scripts\\smoke.mjs"
+    "smoke": "node scripts\\smoke.mjs",
+    "workflow": "node scripts\\workflow.mjs"
   },
   "dependencies": {
     "@github/copilot": "1.0.102",

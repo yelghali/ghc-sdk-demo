@@ -58,7 +58,7 @@ export class CopilotChat {
   async status() {
     const auth = await this.client.getAuthStatus();
     if (!auth.isAuthenticated) {
-      throw new ChatError(401, "Copilot is not signed in. Run .\\setup.ps1, complete GitHub sign-in, then restart this app.");
+      throw new ChatError(401, "Copilot is not signed in. Run .\\login.ps1, complete GitHub sign-in, then restart this app.");
     }
     const models = (await this.client.listModels())
       .filter((model) => model.policy?.state !== "disabled")
@@ -70,6 +70,7 @@ export class CopilotChat {
     return {
       authenticated: true,
       login: auth.login,
+      authType: auth.authType,
       models,
       model: this.model || preferred.id,
       history: this.history,
