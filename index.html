@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Copilot Chat</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("clawpilotTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--cp-bg); color: var(--cp-text); font: 16px/1.5 "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif; }
+    main { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    h1 { margin: 8px 0; font-size: 32px; letter-spacing: -0.5px; }
+    p { margin: 8px 0 16px; }
+    .eyebrow { color: var(--cp-accent); font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+    .muted, .note { color: var(--cp-text-muted); }
+    .note { font-size: 13px; }
+    .card { border: 1px solid var(--cp-border); border-radius: 16px; background: var(--cp-surface); padding: 24px; }
+    .toolbar { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+    .model-field { flex: 1; min-width: 180px; }
+    label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+    select, textarea, button { font: inherit; border: 1px solid var(--cp-border-strong); border-radius: 0.625rem; }
+    select, textarea { width: 100%; background: var(--cp-bg-elevated); color: var(--cp-text); padding: 12px; }
+    button { padding: 12px 16px; background: var(--cp-surface); color: var(--cp-text); cursor: pointer; }
+    button.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 600; }
+    button.primary:hover:not(:disabled) { background: var(--cp-accent-hover); }
+    button:disabled, select:disabled, textarea:disabled { opacity: 0.65; cursor: not-allowed; }
+    :focus-visible { outline: 3px solid var(--cp-accent); outline-offset: 3px; }
+    #status { min-height: 24px; margin-top: 16px; }
+    #error { color: var(--cp-danger); border-left: 3px solid var(--cp-danger); padding-left: 12px; overflow-wrap: anywhere; }
+    #messages { list-style: none; margin: 16px 0 24px; padding: 0; max-height: 45vh; overflow-y: auto; }
+    #messages li { border: 1px solid var(--cp-border); border-radius: 0.625rem; padding: 16px; margin-bottom: 12px; background: var(--cp-surface-soft); }
+    #messages li.user { background: var(--cp-accent-soft); border-color: var(--cp-accent); }
+    #messages strong { font-size: 13px; color: var(--cp-text-soft); }
+    #messages p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; }
+    #empty { border: 1px dashed var(--cp-border-strong); border-radius: 0.625rem; padding: 24px; text-align: center; color: var(--cp-text-muted); margin: 16px 0 24px; }
+    textarea { resize: vertical; min-height: 100px; }
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+    code { font-family: Consolas, "Courier New", Courier, monospace; }
+    @media (max-width: 600px) {
+      main { margin: 24px auto; padding: 0 12px; }
+      .card { padding: 16px; }
+      .actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">GITHUB COPILOT SDK / LOCAL DEMO</div>
+    <h1>Your Copilot, your chat app.</h1>
+    <p class="muted">Chat through your GitHub Copilot account. No OpenAI or Anthropic API key.</p>
+    <section class="card" aria-label="Copilot chat">
+      <div class="toolbar">
+        <div class="model-field">
+          <label for="model">Copilot model</label>
+          <select id="model" disabled><option>Checking available models...</option></select>
+        </div>
+        <button id="refresh" type="button">Check connection</button>
+        <button id="reset" type="button" disabled>New chat</button>
+      </div>
+      <p id="status" role="status">Connecting to your local Copilot runtime...</p>
+      <p id="error" role="alert" hidden></p>
+      <div id="empty">Once connected, choose a model and send your first message.</div>
+      <ol id="messages" role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text"></ol>
+      <form id="chat-form">
+        <label for="message">Your message</label>
+        <textarea id="message" maxlength="8000" placeholder="Ask a question..." required disabled></textarea>
+        <div class="actions">
+          <span class="note">Chat only. File, shell, and MCP tools are disabled.</span>
+          <button id="send" class="primary" type="submit" disabled>Send message</button>
+        </div>
+      </form>
+    </section>
+    <p class="note">Single-user localhost demo: tabs share one conversation. Prompts go to GitHub Copilot and use your plan's allowance. Credentials stay in the backend; the SDK may retain session data in your Copilot profile.</p>
+  </main>
+  <script>
+    const element = (id) => document.getElementById(id);
+    let ready = false;
+    let busy = false;
+    let history = [];
+
+    function updateControls() {
+      element("send").disabled = !ready || busy;
+      element("message").disabled = !ready || busy;
+      element("reset").disabled = !ready || busy;
+      element("refresh").disabled = busy;
+      element("model").disabled = !ready || busy || history.length > 0;
+      element("send").textContent = busy ? "Please wait..." : "Send message";
+    }
+
+    function showError(error) {
+      element("error").textContent = error.message;
+      element("error").hidden = false;
+    }
+
+    function renderHistory() {
+      element("messages").replaceChildren();
+      for (const message of history) {
+        const item = document.createElement("li");
+        item.className = message.role;
+        const label = document.createElement("strong");
+        label.textContent = message.role === "user" ? "You" : "Copilot";
+        const content = document.createElement("p");
+        content.textContent = message.content;
+        item.append(label, content);
+        element("messages").append(item);
+      }
+      element("empty").hidden = history.length > 0;
+      element("messages").scrollTop = element("messages").scrollHeight;
+    }
+
+    async function request(path, body) {
+      const response = await fetch(path, {
+        method: body === undefined ? "GET" : "POST",
+        headers: body === undefined ? {} : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(150000),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Request failed (${response.status}).`);
+      return result;
+    }
+
+    async function connect() {
+      const status = await request("/api/status");
+      element("model").replaceChildren();
+      for (const model of status.models) {
+        const option = document.createElement("option");
+        option.value = model.id;
+        option.textContent = model.name;
+        element("model").append(option);
+      }
+      element("model").value = status.model;
+      history = status.history;
+      renderHistory();
+      ready = true;
+      element("status").textContent = `Connected${status.login ? ` as ${status.login}` : ""}. Uses your Copilot allowance. Start a new chat to change models.`;
+    }
+
+    async function perform(action) {
+      busy = true;
+      element("error").hidden = true;
+      updateControls();
+      try {
+        await action();
+      } catch (error) {
+        showError(error);
+      } finally {
+        busy = false;
+        updateControls();
+      }
+    }
+
+    element("refresh").addEventListener("click", () => perform(async () => {
+      ready = false;
+      element("status").textContent = "Checking Copilot authentication and model access...";
+      await connect();
+    }));
+    element("reset").addEventListener("click", () => perform(async () => {
+      await request("/api/reset", {});
+      await connect();
+      element("message").value = "";
+    }));
+    element("chat-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!ready || busy || !element("message").value.trim()) return;
+      const message = element("message").value.trim();
+      const model = element("model").value;
+      perform(async () => {
+        element("status").textContent = "Copilot is preparing a reply...";
+        const result = await request("/api/chat", { message, model });
+        history.push({ role: "user", content: message }, { role: "assistant", content: result.reply });
+        renderHistory();
+        element("message").value = "";
+        element("status").textContent = `Reply received from ${result.model}.`;
+      }).then(() => { if (ready) element("message").focus(); });
+    });
+    perform(connect);
+  </script>
+</body>
+</html>
