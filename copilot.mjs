@@ -90,11 +90,11 @@ export class CopilotChat {
       if (!status.models.some((candidate) => candidate.id === model)) {
         throw new ChatError(400, "Select a model available to your Copilot account.");
       }
-      if (this.session && this.model !== model) {
-        throw new ChatError(409, "Start a new chat before changing models.");
-      }
       if (!this.session) {
         this.session = await this.client.createSession(chatSessionOptions(model));
+        this.model = model;
+      } else if (this.model !== model) {
+        await this.session.setModel(model);
         this.model = model;
       }
       const response = await this.session.sendAndWait({ prompt: message.trim() }, 120_000);

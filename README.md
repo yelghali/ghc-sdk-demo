@@ -33,7 +33,11 @@ code**. Open the URL, enter the code yourself, and authorize **your own
 Copilot-enabled GitHub account**. Do not send the code or a token to anyone.
 
 Open <http://127.0.0.1:4317>, select an available model, and send a message.
-Use **New chat** before changing models. Stop the server with Ctrl+C.
+**Change models at any time without starting a new chat.** Your selection applies
+to the next message, including when you change it while a reply is running; that
+in-flight reply finishes with its original model. The SDK preserves conversation
+history across model switches. **New chat** is only for clearing the conversation.
+Stop the server with Ctrl+C.
 Tabs share one conversation; this is a single-user local demo.
 
 If PowerShell blocks the script, review it first, then use this process-only
@@ -176,6 +180,12 @@ Unit login tests simulate sign-in states; they never log out your real account.
 Optional model override for smoke/workflow: set
 `$env:COPILOT_MODEL = "<available-model-id>"`. Models and rates can differ by
 account; every live check uses the student's Copilot allowance.
+
+To test switching models and retaining context, set
+`$env:COPILOT_SWITCH_MODEL = "<different-available-model-id>"` before
+`npm run smoke`. The second request uses that model, verifies the SDK's active
+model, and must recall the first reply. Remove that environment variable after
+testing if you want the normal same-model smoke test.
 
 ## Troubleshooting and limits
 

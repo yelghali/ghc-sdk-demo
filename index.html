@@ -111,8 +111,9 @@
       <div class="toolbar">
         <div class="model-field">
           <label for="model">Copilot model</label>
-          <select id="model" disabled><option>Checking available models...</option></select>
+          <select id="model" aria-describedby="model-help" disabled><option>Checking available models...</option></select>
         </div>
+        <p id="model-help" class="note">Change models any time. Your selection applies to the next message; conversation history is kept.</p>
         <button id="refresh" type="button">Check connection</button>
         <button id="reset" type="button" disabled>New chat</button>
       </div>
@@ -142,7 +143,7 @@
       element("message").disabled = !ready || busy;
       element("reset").disabled = !ready || busy;
       element("refresh").disabled = busy;
-      element("model").disabled = !ready || busy || history.length > 0;
+      element("model").disabled = !ready;
       element("send").textContent = busy ? "Please wait..." : "Send message";
     }
 
@@ -181,6 +182,7 @@
 
     async function connect() {
       const status = await request("/api/status");
+      const selectedModel = element("model").value;
       element("model").replaceChildren();
       for (const model of status.models) {
         const option = document.createElement("option");
@@ -188,11 +190,12 @@
         option.textContent = model.name;
         element("model").append(option);
       }
-      element("model").value = status.model;
+      element("model").value = status.models.some((model) => model.id === selectedModel)
+        ? selectedModel : status.model;
       history = status.history;
       renderHistory();
       ready = true;
-      element("status").textContent = `Connected${status.login ? ` as ${status.login}` : ""}. Uses your Copilot allowance. Start a new chat to change models.`;
+      element("status").textContent = `Connected${status.login ? ` as ${status.login}` : ""}. Uses your Copilot allowance. Choose any available model for your next message.`;
     }
 
     async function perform(action) {

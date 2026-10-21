@@ -10,6 +10,7 @@ function fakeClient(overrides = {}) {
   const calls = [];
   const session = {
     sendAndWait: async ({ prompt }) => ({ data: { content: `Reply to ${prompt}` } }),
+    setModel: async (model) => calls.push({ switchedTo: model }),
     abort: async () => calls.push("abort"),
     disconnect: async () => calls.push("disconnect"),
   };
@@ -187,13 +188,66 @@ test("HTTP exposes actionable auth errors but not raw SDK internals", async (t) 
   assert.equal(logs.length, 1);
 });
 
-test("changing models requires reset and stop errors propagate", async () => {
+test("changing models preserves the session and history, including switching back", async () => {
   const client = fakeClient({
     listModels: async () => [{ id: "gpt-test" }, { id: "gpt-other" }],
   });
   const chat = new CopilotChat(client);
   await chat.chat("Hello", "gpt-test");
-  await assert.rejects(chat.chat("Hello", "gpt-other"), { status: 409 });
+  assert.deepEqual(await chat.chat("Remember?", "gpt-other"), {
+    reply: "Reply to Remember?", model: "gpt-other",
+  });
+  assert.equal((await chat.status()).model, "gpt-other");
+  await chat.chat("And back", "gpt-test");
+  assert.deepEqual(client.calls.slice(1), [
+    { switchedTo: "gpt-other" }, { switchedTo: "gpt-test" },
+  ]);
+  assert.equal(chat.history.length, 6);
+  assert.equal(chat.history[0].content, "Hello");
+  assert.equal((await chat.status()).model, "gpt-test");
+});
+
+test("a failed model switch keeps the previous model and does not send the next prompt", async () => {
+  const client = fakeClient({
+    listModels: async () => [{ id: "gpt-test" }, { id: "gpt-other" }],
+  });
+  const chat = new CopilotChat(client);
+  await chat.chat("Hello", "gpt-test");
+  client.session.setModel = async () => { throw new Error("Model switch denied"); };
+  client.session.sendAndWait = async () => assert.fail("Prompt must not be sent after a failed switch");
+  await assert.rejects(chat.chat("Remember?", "gpt-other"), /Model switch denied/);
+  assert.equal((await chat.status()).model, "gpt-test");
+  assert.equal(chat.history.length, 2);
+  assert.equal(chat.busy, false);
+});
+
+test("an unavailable model cannot replace an existing conversation", async () => {
+  const client = fakeClient();
+  const chat = new CopilotChat(client);
+  await chat.chat("Hello", "gpt-test");
+  await assert.rejects(chat.chat("Remember?", "blocked"), { status: 400 });
+  assert.equal(client.calls.length, 1);
+  assert.equal(chat.history.length, 2);
+  assert.equal((await chat.status()).model, "gpt-test");
+});
+
+test("HTTP switches models while retaining the conversation", async (t) => {
+  const chat = new CopilotChat(fakeClient({
+    listModels: async () => [{ id: "gpt-test" }, { id: "gpt-other" }],
+  }));
+  const { url, post } = await withServer(t, chat);
+  await post("/api/chat", { message: "Hello", model: "gpt-test" });
+  const response = await post("/api/chat", { message: "Remember?", model: "gpt-other" });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).model, "gpt-other");
+  const status = await (await fetch(url + "/api/status")).json();
+  assert.equal(status.model, "gpt-other");
+  assert.equal(status.history.length, 4);
+});
+
+test("stop errors propagate", async () => {
+  const client = fakeClient();
+  const chat = new CopilotChat(client);
   client.stop = async () => [new Error("shutdown failed")];
   await assert.rejects(chat.stop(), AggregateError);
 });
